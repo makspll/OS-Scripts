@@ -3,7 +3,7 @@ Helper scripts to help with the Operating Systems course at the UoE
 
 # Usage
 
-`python3 scheduling.py <input csv file path> <process/disk/page> <optional time quantum, default 0>`
+`python3 scheduling.py <input csv file path> <process/disk/page> <optional time quantum, default 1>`
 
 the input csv file contains a scheduling unit per line with the following formats:
 
