@@ -138,7 +138,47 @@ class RoundRobin(ProcessSchedulingAlgorithm):
         units.remove(chosen)
         units.append(chosen)
 
-class MultipleQueues(ProcessSchedulingAlgorithm):
+class MultipleQueuesFlipOnHighPreempt(ProcessSchedulingAlgorithm):
+    def __init__(self, quantum : int) -> None:
+        self.queues = {}
+        self.quantum = quantum
+        self.last_priority = None
+        self.last = None
+
+    def choose_next(self, units: List[Process]) -> Unit:
+        
+        # sort by priority, sort is stable, so arrival order for processes with equal 
+        # priority 
+        units.sort(key=lambda u:u.priority)
+
+        # if priority hasn't been scheduled before, initialize the RR scheduler 
+        highest_priority = units[0].priority
+        rr : RoundRobin = self.queues.setdefault(highest_priority,RoundRobin(self.quantum))
+        
+        # if we preempted a lower priority, push the front of that queue to back
+        print(highest_priority,self.last_priority)
+        if self.last_priority and highest_priority < self.last_priority and self.last and not self.last.finished():
+            rr_preempted = self.queues.get(self.last_priority)
+            # put it at back of its priority queue via stable sorting trick
+            units.remove(self.last)
+            units.append(self.last)
+            units.sort(key=lambda u:u.priority)
+            rr_preempted.reset()
+
+        # pick subset of the queue corresponding to current priority
+        highest_queue = list(takewhile(lambda u: u.priority == highest_priority, units))
+        
+        # perform round robin scheduling on highest priority,
+        # this will possibly have side effects on the queue
+        # feed those back into aggregated queue
+        next_unit = rr.choose_next(highest_queue)
+        units[0:len(highest_queue)] = highest_queue
+        self.last = next_unit
+        self.last_priority = highest_priority
+
+        return next_unit
+
+class MultipleQueuesFreezeOnHighPreempt(ProcessSchedulingAlgorithm):
     def __init__(self, quantum : int) -> None:
         self.queues = {}
         self.quantum = quantum
@@ -373,7 +413,8 @@ if __name__ == "__main__":
                 ("ShortestRemainingTimeFirst", PreEmptiveSJF()),
                 ("RoundRobin", RoundRobin(quantum)),
                 ("Priority",  Priority()),
-                ("MultipleQueues", MultipleQueues(quantum)),
+                ("MultipleQueuesFlipOnHighPreempt", MultipleQueuesFlipOnHighPreempt(quantum)),
+                ("MultipleQueuesFreezeOnHighPreempt", MultipleQueuesFreezeOnHighPreempt(quantum)),
                 ("MultiLevelFeedbackQueue",  MultilevelFeedbackQueue(lambda p : 2 **(p-1)))
             ]
         elif eMode == Mode.DISK: 
