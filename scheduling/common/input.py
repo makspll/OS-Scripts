@@ -2,7 +2,7 @@
 
 from typing import List
 from enum import Enum
-from common.units import Process, Unit
+from .units import Process, Unit, Track
 
 
 class Mode(Enum):
@@ -20,7 +20,8 @@ class Reader():
 
             if mode == Mode.PROCESS:
                 creator = lambda str : Process.parse(str)
-                
+            elif mode == Mode.DISK:
+                creator = lambda str : Track.parse(str)
             units = []
             for l in f.readlines():
                 units.append(creator(l))

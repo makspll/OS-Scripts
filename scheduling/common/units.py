@@ -46,3 +46,25 @@ class Process(Unit):
         cpu_time = int(params[2])
         priority = int(params[3])
         return Process(arrival,name,cpu_time,priority=priority)
+
+class Track(Unit):
+    def __init__(self, arrival_time: int, name: str, track_number : int) -> None:
+        super().__init__(arrival_time, name)
+
+        self.track_number = track_number
+        self.read = False
+    
+    def do_work(self) -> None:
+        self.read = True 
+
+    def finished(self) -> bool:
+        return self.read
+
+    @staticmethod
+    def parse(csvLine : str) -> Unit :
+        params = csvLine.split(",")
+
+        name = params[0]
+        arrival = int(params[1])
+        track = int(params[2])
+        return Track(arrival,name,track)

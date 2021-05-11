@@ -1,6 +1,6 @@
 from common.input import Mode, Reader
-from common.output import Schedule
-from common.units import Process
+from common.output import Schedule,TrackSchedule
+from common.units import Process,Track
 from typing import Callable, List, Tuple
 from common.units import Unit
 from itertools import takewhile 
@@ -38,7 +38,13 @@ class SchedulingAlgorithm():
 
                 if next_unit.finished():
                     finished_queue.append(next_unit)
-                    ready_queue.remove(next_unit)
+
+                    if not next_unit in ready_queue:
+                        # we "created" a unit
+                        pass
+                    else:
+                        ready_queue.remove(next_unit)
+
             curr_time += 1
 
         return Schedule(scheduling_list)
@@ -52,8 +58,7 @@ class SchedulingAlgorithm():
         """ override this for specific behaviour """ 
         return units
 
-class ProcessSchedulingAlgorithm(SchedulingAlgorithm):
-    pass 
+
 
 class NonPreemptiveFCFS(SchedulingAlgorithm):
     def __init__(self) -> None:
@@ -69,6 +74,11 @@ class NonPreemptiveFCFS(SchedulingAlgorithm):
         self.last = sorted_units[0]
         return sorted_units[0]
 
+### ------- ###
+### PROCESS ###
+### ------- ###
+class ProcessSchedulingAlgorithm(SchedulingAlgorithm):
+    pass 
 
 class PreEmptiveSJF(ProcessSchedulingAlgorithm):
     def choose_next(self, units: List[Process]) -> Unit:
@@ -212,7 +222,107 @@ class Priority(ProcessSchedulingAlgorithm):
         self.last = sorted_units[0]
         return sorted_units[0]
 
+### ------- ###
+### PROCESS ###
+### ------- ###
 
+
+### ------- ###
+### DISK    ###
+### ------- ###
+
+class TrackSchedulingAlgorithm(SchedulingAlgorithm):
+    def __init__(self,low_track : int, high_track : int,start_head_position : int, last_direction : int) -> None:
+        super().__init__()
+        self.start_head_position = start_head_position
+        self.head_position = start_head_position
+        self.last_direction = last_direction
+        self.low_track  = low_track
+        self.high_track = high_track
+
+    def schedule(self, units: List[Unit]) -> Schedule:
+        schedule = super().schedule(units)
+        list_s : List= schedule.schedule_list 
+        start_pos = Track(0,str(self.start_head_position),self.start_head_position)
+        list_s.insert(0,start_pos)
+        return TrackSchedule(list_s) # change output formating
+
+class ShortestSeekTimeFirst(TrackSchedulingAlgorithm):
+    def choose_next(self, units: List[Unit]) -> Unit:
+        # sort according to distance from head position
+        curr_head_pos = self.head_position
+        sorted_units = sorted(units,key=lambda u:abs(u.track_number - curr_head_pos))
+        return sorted_units[0]
+
+class FCFSDisk(TrackSchedulingAlgorithm):
+    def choose_next(self, units: List[Unit]) -> Unit:
+        return units[0]
+
+class SCAN(TrackSchedulingAlgorithm):
+    def choose_next(self, units: List[Unit]) -> Unit:
+        curr_direction = self.last_direction
+        
+
+        # get only those tracks in direction we're looking for
+        nUnits = [x for x in units if (x.track_number - self.head_position) * curr_direction >= 0 ]
+        if len(nUnits) == 0:
+            # if reached the edge, reverse direction and go to edge track
+            self.last_direction *= -1
+            if curr_direction == -1:
+                self.head_position = self.low_track
+                return Track(0,str(self.low_track),self.low_track)
+            else:
+                self.head_position = self.high_track
+                return Track(0,str(self.high_track),self.high_track)
+
+
+        else:
+            # sort them by distance to head 
+            nUnits.sort(key= lambda x : abs(x.track_number - self.head_position))
+            self.head_position = nUnits[0].track_number
+            return nUnits[0]
+
+class CSCAN(TrackSchedulingAlgorithm):
+   def __init__(self, low_track: int, high_track: int, start_head_position: int, last_direction: int) -> None:
+       super().__init__(low_track, high_track, start_head_position, last_direction)
+
+       self.servicing = True
+
+   def choose_next(self, units: List[Unit]) -> Unit:
+        curr_direction = self.last_direction
+        
+        # if skipping to start position
+        if self.servicing == False: 
+            self.servicing = True
+            if curr_direction == -1:
+                self.head_position = self.high_track
+                return Track(0,str(self.high_track),self.high_track)
+            else:
+                self.head_position = self.low_track
+                return Track(0,str(self.low_track),self.low_track)
+
+        # get only those tracks in direction we're looking for
+        nUnits = [x for x in units if (x.track_number - self.head_position) * curr_direction >= 0 ]
+        if len(nUnits) == 0:
+            # if reached edge, move to it, then next time start on other edge with same direction
+            self.servicing = False
+            if curr_direction == -1:
+                self.head_position = self.low_track
+                return Track(0,str(self.low_track),self.low_track)
+            else:
+                self.head_position = self.high_track
+                return Track(0,str(self.high_track),self.high_track)
+
+
+        else:
+            # sort them by distance to head 
+            nUnits.sort(key= lambda x : abs(x.track_number - self.head_position))
+            self.head_position = nUnits[0].track_number
+            return nUnits[0]
+
+### ------- ###
+### DISK    ###
+### ------- ###
 if __name__ == "__main__":
     
     path = None
@@ -224,9 +334,23 @@ if __name__ == "__main__":
         pass 
 
     quantum = 1
-    if len(sys.argv) == 4:
-        quantum = int(sys.argv[3])
-
+    head_init = 0
+    head_min = 0
+    head_max = 199
+    head_dir = 1
+    if mode == "process":
+        if len(sys.argv) == 4:
+            quantum = int(sys.argv[3])
+    elif mode == "disk":
+        try:
+            head_min = int(sys.argv[3])
+            head_max = int(sys.argv[4])
+            head_init = int(sys.argv[5])
+            head_dir = int((sys.argv[6]))
+        except:
+            print("usage: python3 script.py input.csv disk low-track high-track head-initial-pos head-initial-direction (+ is towards high)")
+            sys.exit(0)
+            
     vals = ["process","disk","page"] # corresponds to Mode enum indexes
     
     if mode not in vals or not path or not mode:
@@ -234,16 +358,16 @@ if __name__ == "__main__":
         print("second argument must be one of: {}".format(vals))
         print("third argument can be either ommitted or set to the time quantum for rr (default 1)")
         print("the input file needs to be a csv file with each line corresponding to a scheduling unit, in one of the following formats:")
-        print("process scheduling: pname,arrival time, cpu burst time, priority (lower is better)")
         sys.exit(0)
     else:
         reader = Reader()
         eMode = Mode(vals.index(mode))
         units = reader.read(eMode,path)    
 
-        if eMode == Mode.PROCESS:
+        alg_filenames: List[Tuple[str,SchedulingAlgorithm]] = []
 
-            alg_filenames : List[Tuple[str,SchedulingAlgorithm]] = [
+        if eMode == Mode.PROCESS:
+            alg_filenames  = [
                 ("FirstComeFirstServed", NonPreemptiveFCFS()),
                 ("ShortestJobFirst", NonPreemptiveSJF()),
                 ("ShortestRemainingTimeFirst", PreEmptiveSJF()),
@@ -252,15 +376,19 @@ if __name__ == "__main__":
                 ("MultipleQueues", MultipleQueues(quantum)),
                 ("MultiLevelFeedbackQueue",  MultilevelFeedbackQueue(lambda p : 2 **(p-1)))
             ]
-
-            for (f,a) in alg_filenames:
-                uCopy = deepcopy(units)
-                schedule = a.schedule(uCopy)
-                schedule.save(os.path.dirname(path),"{}.csv".format(f))
-
         elif eMode == Mode.DISK: 
-            pass   
+            alg_filenames = [
+                ("FirstComeFirstServed", FCFSDisk(head_min,head_max,head_init,head_dir)),
+                ("ShortestSeekTimeFirst", ShortestSeekTimeFirst(head_min,head_max,head_init,head_dir)),
+                ("SCAN", SCAN(head_min,head_max,head_init,head_dir)),
+                ("C-SCAN", CSCAN(head_min,head_max,head_init,head_dir))
+            ]
         elif eMode == Mode.PAGE: 
             pass
+    
+        for (f,a) in alg_filenames:
+            uCopy = deepcopy(units)
+            schedule = a.schedule(uCopy)
+            schedule.save(os.path.dirname(path),"{}.csv".format(f))
 
         print("Saved scheduling data to {}".format(os.path.dirname(path)))

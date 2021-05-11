@@ -26,7 +26,6 @@ class Schedule():
                 row.append(int(u == p))
 
             self.array.append(row)
-        print(self.array)
         # work out interesting intervals (i.e. we shrink the table horizontally, by concatenating columns which have 1's in the same position and 
         # are directly adjacent) 
 
@@ -42,7 +41,6 @@ class Schedule():
                 break 
 
             next_unit_idx = self._unit_idx_at_time(curr_time + 1)
-            print(next_unit_idx,curr_time,len(self.schedule_list))
             if next_unit_idx != curr_unit_idx:
                 self.intervals.append((interval_start,curr_time,curr_unit_idx))
                 curr_unit_idx = next_unit_idx
@@ -50,7 +48,6 @@ class Schedule():
             
             curr_time += 1
 
-        print(self.intervals)
     def _unit_idx_at_time(self,time : int):
         """ returns the unit index in self.array which was scheduled at the given time """
         for (i,r) in enumerate(self.array):
@@ -81,7 +78,6 @@ class Schedule():
                     row.append(str(int(u == self.units[ui])))
 
                 # turnaround time 
-                print([b for (a,b,ui) in self.intervals if u == self.units[ui]])
                 completion_time = max([b for (_,b,ui) in self.intervals if u == self.units[ui]])
                 submission_time = u.arrival_time 
                 turnaround_time = completion_time - submission_time + 1
@@ -102,7 +98,16 @@ class Schedule():
 
             averages = ["averages"] + (['_'] * len(self.intervals)) + [avg_turnaround_time,avg_wait_time]
             f.write(to_csv_string(averages))
-
-
         # close file
-            
+
+class TrackSchedule(Schedule):
+    def save(self, dir: str, file_name: str):
+        with open(join(dir,file_name),'w') as f:
+            for t in self.schedule_list:
+                f.write(str(t)+",")
+
+            sum_tracks = 0
+            for i in range(len(self.schedule_list) - 1):
+                sum_tracks += abs(self.schedule_list[i+1].track_number - self.schedule_list[i].track_number)
+
+            f.write("head movements: {}".format(sum_tracks))
