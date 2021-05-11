@@ -156,7 +156,6 @@ class MultipleQueuesFlipOnHighPreempt(ProcessSchedulingAlgorithm):
         rr : RoundRobin = self.queues.setdefault(highest_priority,RoundRobin(self.quantum))
         
         # if we preempted a lower priority, push the front of that queue to back
-        print(highest_priority,self.last_priority)
         if self.last_priority and highest_priority < self.last_priority and self.last and not self.last.finished():
             rr_preempted = self.queues.get(self.last_priority)
             # put it at back of its priority queue via stable sorting trick
