@@ -3,7 +3,11 @@ Helper scripts to help with the Operating Systems course at the UoE
 
 # Usage
 
-`python3 scheduling.py <input csv file path> <process/disk/page> <optional time quantum, default 1>`
+process scheduling:
+`python3 scheduling.py <input csv file path> process <optional time quantum, default 1>`
+
+disk scheduling:
+`python3 scheduling.py <input csv file path> disk <low-track> <high-track> <start-head-track> <start-head-direction (1|-1 for high or low respectively)>`
 
 the input csv file contains a scheduling unit per line with the following formats:
 
@@ -12,6 +16,10 @@ process scheduling:
 process name, arrival time (int), cpu burst time (int), priority (int, lower is better)
 ```
 
+disk scheduling:
+```csv
+track name, arrival time (int), track number (int)
+```
 
 
 the output will be a number of different csv files containing the minified gantt charts for each relevant scheduling algorithm like so:
