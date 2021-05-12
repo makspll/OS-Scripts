@@ -291,6 +291,8 @@ class ShortestSeekTimeFirst(TrackSchedulingAlgorithm):
         # sort according to distance from head position
         curr_head_pos = self.head_position
         sorted_units = sorted(units,key=lambda u:abs(u.track_number - curr_head_pos))
+        self.head_position = sorted_units[0].track_number
+        
         return sorted_units[0]
 
 class FCFSDisk(TrackSchedulingAlgorithm):
