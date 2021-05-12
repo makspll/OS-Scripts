@@ -12,7 +12,7 @@ class Schedule():
             
         """
         self.schedule_list = schedule_list
-
+        print(schedule_list)
         # find all units present in schedule and sort them 
         self.units = sorted(list(set(self.schedule_list)),key=lambda u: str(u))
         
@@ -31,7 +31,9 @@ class Schedule():
 
         curr_time = 0
         curr_unit_idx = self._unit_idx_at_time(curr_time)
-        interval_start = 0 
+        curr_time = self.units[curr_unit_idx].arrival_time
+        print(curr_time)
+        interval_start = curr_time
 
         self.intervals = []
         while curr_time < len(self.schedule_list):
